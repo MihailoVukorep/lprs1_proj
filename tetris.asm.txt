@@ -5,7 +5,7 @@
 0x100 ;; pointer - rgb matrix
 0x140 ;; pointer - frame sync
 0x200 ;; pointer - pb dec
-4, 0
+4, 2
 -1, -1
 
 .text
@@ -46,6 +46,7 @@ draw_tetris_begin:
 	sub R0, R0, R0              ;; addr = 0
 	ld R4, R0                   ;; R4 <- p_food_and_snake
 	shl R3, R3                  ;; initial color = green
+	shl R3, R3
 draw_playerblock_loop:
 	ld R1, R4                   ;; R1 <- p_food_and_snake->x
 	jmps draw_tetris_end        ;; Jump to end if passed tail of snake.
@@ -60,6 +61,11 @@ draw_playerblock_loop:
 	add R2, R1, R2              ;; (y << 3) + x
 	add R2, R7, R2              ;; p_rgb_matrix + (y << 3) + x
 	st R3, R2                   ;; apply color   R3 -> p_rgb_matrix[y][x]
+
+	shr R3, R3
+	jmpnz draw_playerblock_loop
+	inc R3, R3
+	jmp draw_playerblock_loop
 draw_tetris_end:
 
 count_frames_begin:
