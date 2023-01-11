@@ -1,0 +1,258 @@
+;; ###########################
+;; #  0  1  2  3  4  5  6  7 #
+;; #  8  9 10 11 12 13 14 15 #
+;; # 16 17 18 19 20 21 22 23 #
+;; # 24 25 26 27 28 29 30 31 #
+;; # 32 33 34 35 36 37 38 39 #
+;; # 40 41 42 43 44 45 46 47 #
+;; # 48 49 50 51 52 53 54 55 #
+;; # 56 57 58 59 60 61 62 63 #
+;; ###########################
+;;
+;; # # # # # # # # # #
+;; # . . . . . . . . #
+;; # . . . . . . . . #
+;; # . . . . . . . . #
+;; # . . . . . . . . #
+;; # . . . . . . . . #
+;; # . . . . . . . . #
+;; # . . . . . . . . #
+;; # . . . . . . . . #
+;; # # # # # # # # # #
+;;
+;;     0 1 2 3 4 5 6 7
+;;   # # # # # # # # # #
+;; 0 # . . . . . . . . #
+;; 1 # . . . . . . . . #
+;; 2 # . . . . . . . . #
+;; 3 # . . . . . . . . #
+;; 4 # . . . . . . . . #
+;; 5 # . . . . . . . . #
+;; 6 # . . . . . . . . #
+;; 7 # . . . . . . . . #
+;;   # # # # # # # # # #
+;;
+;; ###########################
+;; #  0  1  2  3  4  5  6  7 #
+;; #  8  9 10 11 12 13 14 15 #
+;; # 16 17 18 19 20 21 22 23 #
+;; # 24 25 26 27 28 29 30 31 #
+;; # 32 33 34 35 36 37 38 39 #
+;; # 40 41 42 43 44 45 46 47 #
+;; # 48 49 50 51 52 53 54 55 #
+;; # 56 57 58 59 60 61 62 63 #
+;; ###########################
+;;
+;;
+
+.data
+8 ;; pointer na p_data
+0 ;; frame count
+1 ;; frame per heartbeat
+0x100 ;; pointer - rgb matrix
+0x140 ;; pointer - frame sync
+0x200 ;; pointer - pb dec
+
+3, 0 ;; default player x,y
+
+;; p_data:
+3, 0 ;; x, y player/block
+
+0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
+0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
+0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
+0, 0, 0, 0, 0, 0, 0, 1 ;; hitmap
+0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
+0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
+0, 0, 0, 0, 0, 0, 1, 0 ;; hitmap
+1, 1, 1, 0, 0, 0, 1, 0 ;; hitmap
+-1 ;; hitmap_end
+
+.text
+;;
+;; R0 - tmp
+;; R1 - x
+;; R2 - y
+;; R3 - color
+;; R4 - p_data
+;; R5 - p_pb_dec
+;; R6 - p_frame_sync
+;; R7 - p_rgb_matrix
+;; 
+
+
+;;#==[ REGISTER SETUP
+	inc R0, R0 ;; addr = 1
+	inc R0, R0 ;; addr = 2
+	inc R0, R0 ;; addr = 3
+	ld R7, R0  ;; R7 <- p_rgb_matrix
+	inc R0, R0 ;; addr = 4
+	ld R6, R0  ;; R6 <- p_frame_sync
+	inc R0, R0 ;; addr = 5
+	ld R5, R0  ;; R5 <- p_pb_dec
+
+;;==[ CLOCK LOOP
+frame_sync_rising_edge:
+frame_sync_wait_0:
+	ld R0, R6                   ;; R0 <- p_frame_sync
+	jmpnz frame_sync_wait_0
+frame_sync_wait_1:
+	ld R0, R6                   ;; R0 <- p_frame_sync
+	jmpz frame_sync_wait_1
+
+;;#==[ DRAW BEGIN
+    sub R0, R0, R0              ;;
+    ld R4, R0                   ;; p_data = start (addr 6)
+	sub R3, R3, R3              ;; color = 0
+    inc R3, R3                  ;; color = red
+;;#==[ DRAW PLAYER
+	ld R1, R4                   ;; R1 <- player x coord
+	inc R4, R4                  ;; p_data++
+	ld R2, R4                   ;; R2 <- player y coord
+	shl R2, R2                  ;; y << 1
+	shl R2, R2                  ;; y << 1
+	shl R2, R2                  ;; y << 1
+	add R2, R1, R2              ;; y += x
+	add R2, R7, R2              ;; y += p_rgb_matrix
+	st R3, R2                   ;; p_rgb_matrix[x][y] = red color
+;;#==[ DRAW HITMAP
+	inc R4, R4                  ;; p_data++ / p_data -> hitmap[0]
+	shl R3, R3                  ;; color = red->green
+	sub R0, R0, R0              ;; R0 = 0 / counter
+draw_hitmap_loop:
+	ld R1, R4                   ;; 
+	jmps draw_end               ;; hitmap[i] == -1
+	ld R1, R4                   ;; 
+	jmpz draw_hitmap_next       ;; hitmap[i] == 0
+	;; hitmap[i] == 1
+	add R2, R7, R0 ;; R2 = p_rgb_matrix + counter
+	st R3, R2      ;; color -> R2
+	jmp draw_hitmap_next
+draw_hitmap_next:
+	inc R4, R4 ;; p_data++
+	inc R0, R0 ;; R0++ / counter++
+	jmp draw_hitmap_loop
+
+draw_end:
+;;#==[ DRAW END
+
+;;#==[ SLEEP
+	sub R0, R0, R0              ;; addr = 0
+	inc R0, R0
+	ld R1, R0                   ;; R1 <- frame_cnt
+	inc R0, R0
+	ld R2, R0                   ;; R2 <- frames_per_heartbeat
+	dec R0, R0
+	inc R1, R1                  ;; frame_cnt++;
+	sub R2, R2, R1              ;; frame_cnt == frames_per_heartbeat
+	jmpz count_frames_heatbeat  ;; Jump if equal.
+	st R1, R0                   ;; R1 -> frame_cnt
+	jmp frame_sync_rising_edge
+count_frames_heatbeat:
+	sub R1, R1, R1
+	st R1, R0                   ;; R1 i.e. 0 -> frame_cnt
+;;#==[ SLEEP END
+
+;; before falling check under block for under,bottom
+
+;;#==[ FALLING -> CHECK UNDER
+;; check if player hit block under
+	sub R0, R0, R0               ;; R0 = 0
+	ld R4, R0                    ;; p_data = start / p_data -> x
+	ld R1, R4                    ;; R1 = x
+	inc R4, R4                   ;; p_data++ / p_data -> y
+	ld R2, R4                    ;; R2 = y
+	inc R4, R4                   ;; p_data++ / p_data -> hitmap[0]
+	;;> R1 = x ; R2 = y ; R4 = hitmap[0]
+	inc R2, R2                   ;; y++
+	shl R2, R2                   ;; y << 1
+	shl R2, R2                   ;; y << 1
+	shl R2, R2                   ;; y << 1
+	add R2, R1, R2               ;; y += x
+	add R2, R4, R2               ;; y += R4
+	ld R0, R2                    ;;
+	jmpz falling_check_bottom    ;; if hitmap[y+1] == 1 -> jmp falling_hit
+	jmp falling_hit
+;;#==[ FALLING -> CHECK UNDER END
+
+;;#==[ FALLING -> CHECK BOTTOM
+;; check if player hit the bottom / y == 7
+falling_check_bottom:
+	sub R0, R0, R0
+	ld R4, R0                   ;; p_data = start (addr 6) / x cord
+	inc R4, R4                  ;; p_data++ / y cord
+	ld R1, R4                   ;; R1 <- player y coord
+	sub R0, R0, R0              ;; R0 = 0
+	inc R0, R0                  ;; R0 = 1
+	inc R0, R0                  ;; R0 = 2
+	inc R0, R0                  ;; R0 = 3
+	inc R0, R0                  ;; R0 = 4
+	inc R0, R0                  ;; R0 = 5
+	inc R0, R0                  ;; R0 = 6
+	inc R0, R0                  ;; R0 = 7
+	sub R2, R0, R1
+	jmpz falling_hit
+;;#==[ FALLING -> CHECK BOTTOM END
+
+;;#==[ FALLING -> CHECK END
+	;; all checks checked, you can fall now
+	jmp falling
+
+
+;; load x & y and put in hitmap[x][y] = 1
+;;#==[ FALLING -> HIT
+falling_hit:
+	;; load x & y
+	sub R0, R0, R0
+	ld R4, R0                   ;; p_data = start (addr 6)
+	ld R1, R4                   ;; R1 <- player x coord
+	inc R4, R4                  ;; p_data++
+	ld R2, R4                   ;; R2 <- player y coord
+	inc R4, R4                  ;; p_data++ / p_data -> hitmap[0]
+
+	;; R2 = (y << 3) + x + R4 / R2 = hitmap[i]
+	shl R2, R2                  ;; y << 1
+	shl R2, R2                  ;; y << 1
+	shl R2, R2                  ;; y << 1
+	add R2, R1, R2              ;; y += x
+	add R2, R4, R2              ;; y += R4
+	sub R0, R0, R0              ;; R0 = 0
+	inc R0, R0                  ;; R0 = 1
+	st R0, R2                   ;; hitmap[i] = 1
+
+;;#==[ FALLING -> RESTART PLAYER POS
+;; x = 3 , y = 0
+	sub R0, R0, R0
+	inc R0, R0
+	inc R0, R0
+	inc R0, R0
+	inc R0, R0
+	inc R0, R0
+	inc R0, R0 ;; R0 = 6
+	ld R1, R0  ;; R1 = def x
+	inc R0, R0 ;; R0 = 7
+	ld R2, R0  ;; R2 = def y
+	sub R0, R0, R0
+	ld R4, R0 ;; p_data -> x
+	st R1, R4 ;; def x -> x
+	inc R4, R4 ;; p_data++ / p_data -> y
+	st R2, R4 ;; def y -> y
+	
+	jmp end
+
+
+;;#==[ FALLING
+falling:
+	sub R0, R0, R0 ;; R0 = 0
+	ld R4, R0      ;; p_data = start (addr 6) / p_data = x
+	inc R4, R4     ;; p_data++ / p_data = y
+	ld R1, R4      ;; R1 <- y
+	inc R1, R1     ;; R1++
+	st R1, R4      ;; R1 -> y
+;;#==[ FALLING END
+
+
+	
+
+end:
+	jmp frame_sync_rising_edge
