@@ -58,12 +58,12 @@
 ;; p_data:
 3, 0 ;; x, y player/block location
 0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
-0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
-0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
-0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
-0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
-1, 0, 0, 0, 0, 1, 0, 0 ;; hitmap
-1, 0, 1, 0, 0, 1, 1, 0 ;; hitmap
+0, 1, 1, 0, 0, 0, 0, 0 ;; hitmap
+0, 1, 1, 0, 0, 0, 0, 1 ;; hitmap
+0, 1, 1, 0, 1, 0, 0, 1 ;; hitmap
+0, 1, 1, 0, 1, 1, 0, 1 ;; hitmap
+1, 1, 1, 0, 1, 1, 1, 1 ;; hitmap
+1, 1, 1, 0, 1, 1, 1, 1 ;; hitmap
 1, 1, 1, 0, 1, 1, 1, 1 ;; hitmap
 -1 ;; hitmap_end
 
@@ -100,6 +100,30 @@ frame_sync_wait_1:
 	ld R0, R6                   ;; R0 <- p_frame_sync
 	jmpz frame_sync_wait_1
 
+
+;; TESTTTTT
+; 	sub R0, R0, R0              ;;
+;     ld R4, R0                   ;; p_data = start (addr 8)
+; 	sub R3, R3, R3              ;; color = 0
+;     inc R3, R3
+;     inc R4, R4
+;     inc R4, R4 ; hitmap[0]
+;
+; 	sub R2, R2, R2
+; 	inc R2, R2 ; R2 = 1
+; 	shl R2, R2
+; 	shl R2, R2
+; 	shl R2, R2
+; 	shl R2, R2
+; 	shl R2, R2
+; 	shl R2, R2
+; 	dec R2, R2
+; 	add R2, R7, R2
+;     st R3, R2
+;
+;     jmp sleep
+;; END TESTTTTT
+
 ;;#==[ DRAW BEGIN
     sub R0, R0, R0              ;;
     ld R4, R0                   ;; p_data = start (addr 8)
@@ -134,6 +158,7 @@ draw_end:
 ;;#==[ DRAW END
 
 ;;#==[ SLEEP
+sleep:
 	sub R0, R0, R0              ;; addr = 0
 	inc R0, R0
 	ld R1, R0                   ;; R1 <- frame_cnt
@@ -228,42 +253,104 @@ falling_hit:
 	st R1, R4 ;; def x -> x
 	inc R4, R4 ;; p_data++ / p_data -> y
 	st R2, R4 ;; def y -> y
-	;;jmp end
 
-;;;;;; CLEARING_CHECK -> SETUP
-clearing_check_setup:
-	sub R0, R0, R0
-	mov R3, R0     ;; R3 (number of bottom blocks that have been hit) = 0
-	inc R0, R0
-	shl R0, R0
-	shl R0, R0
-	shl R0, R0     ;; R0 (max for comparison) = 8
-	sub R1, R1, R1
-	inc R1, R1
-	shl R1, R1
-	shl R1, R1
-	shl R1, R1
-	shl R1, R1
-	shl R1, R1
-	shl R1, R1     ;; R1 = the bottom left point (addr 64 = hitmap[56])
-clearing_check_loop:
+;;;;; CLEARING_CHECK -> SETUP
+; clearing_check_setup:
+; 	sub R0, R0, R0
+; 	mov R3, R0     ;; R3 (number of bottom blocks that have been hit) = 0
+; 	inc R0, R0
+; 	shl R0, R0
+; 	shl R0, R0
+; 	shl R0, R0     ;; R0 (max for comparison) = 8
+; 	sub R1, R1, R1
+; 	ld R4, R1      ;; pdata[0]
+; 	inc R4, R4
+; 	inc R4, R4     ;; hitmap[0]
+; clearing_check_loop:
+; 	inc R3, R3
+; 	sub R4, R0, R3 ;; R4 = 8 - count
+; 	jmpz replace_setup
+;
+; 	sub R4, R4, R4
+; 	inc R4, R4     ;; R4 (for comparison if hit) = 1
+; 	ld R2, R1      ;; R2 = hitmap[i]
+; 	inc R1, R1     ;; move to the next
+; 	sub R2, R4, R2
+; 	jmpz clearing_check_loop ;; check next
+; 	jmp end
+
+check_lowest_loop_setup:
+	sub R3, R3, R3
 	inc R3, R3
-	sub R4, R0, R3 ;; R4 = 8 - count
-	jmpz clearing_setup
+	mov R0, R3     ; R0 = 1, for checking if there's a block
+	shl R3, R3
+	shl R3, R3
+	shl R3, R3     ; R3 = 8
+	mov R4, R3      ; R4 = pdata[0]
+	inc R4, R4     ; pdata[1]
+	inc R4, R4     ; hitmap[0] (pdata[2])
+	add R4, R4, R3 ; hitmap[8]
+	add R4, R4, R3 ; hitmap[16]
+	add R4, R4, R3 ; hitmap[24]
+	add R4, R4, R3 ; hitmap[32]
+	add R4, R4, R3 ; hitmap[40]
+	add R4, R4, R3 ; hitmap[48]
+	add R4, R4, R3 ; hitmap[56]
+	add R4, R4, R3 ; hitmap[64] = -1
+	dec R4, R4     ; R4 = hitmap[63] / bot right
+check_lowest_loop:
+	dec R3, R3
+	jmps replace_setup
+	ld R2, R4      ; value of hitmap[current]
+	jmpz end
+	dec R4, R4
+	jmp check_lowest_loop
 
-	sub R4, R4, R4
-	inc R4, R4     ;; R4 (for comparison if hit) = 1
-	ld R2, R1      ;; R2 = hitmap[i]
-	inc R1, R1     ;; move to the next
-	sub R2, R4, R2
-	jmpz clearing_check_loop ;; check next
-	jmp end
-
-clearing_setup:
-	sub R1, R1, R3 ;; reset R1 back to bottom left, R1 = 63 - 8 = 55
-	inc R1, R1     ;; R1 = 64 = hitmap[56]
-
-	;; TODO: CLEARING ALGORITHM
+replace_setup:
+	sub R2, R2, R2 ; R2 = y level (starts from the lowest level); if y = 0, go to the modified replace_loop_start label
+	inc R2, R2
+	shl R2, R2
+	shl R2, R2
+	shl R2, R2     ; R2 = y = 8
+	mov R3, R2     ; R3 = const (8) for calculating hitmap[above]
+	mov R1, R2     ; R1 = x = 8
+	mov R4, R2
+	inc R4, R4
+	inc R4, R4     ; hitmap[0]
+	add R4, R4, R2 ; hitmap[8]
+	add R4, R4, R2 ; hitmap[16]
+	add R4, R4, R2 ; hitmap[24]
+	add R4, R4, R2 ; hitmap[32]
+	add R4, R4, R2 ; hitmap[40]
+	add R4, R4, R2 ; hitmap[48]
+	add R4, R4, R2 ; hitmap[56]
+	add R4, R4, R2 ; hitmap[64] = -1
+	dec R4, R4     ; R4 = hitmap[63] / bot right
+	mov R0, R4
+	sub R0, R0, R3 ; R0 = hitmap[current] - 8 = hitmap[above]
+	dec R2, R2     ; y = 7 at the start so that it's 0 when we hit the top row
+replace_loop_start:
+	dec R1, R1     ; x--
+	jmps replace_loop_decrease_y
+replace_loop_p2:
+	ld R1, R0      ; R1 = value of hitmap[above]
+	st R1, R4      ; hitmap[current] <- value of hitmap[above]
+	dec R4, R4     ; hitmap[current - 1]
+	dec R0, R0     ; hitmap[above - 1]
+	jmp replace_loop_start
+replace_loop_decrease_y:
+	mov R1, R3
+	dec R2, R2     ; y--
+	jmpz replace_loop_top_row
+	dec R1, R1     ; reset x to 7
+	jmp replace_loop_p2
+replace_loop_top_row:
+	dec R1, R1
+	jmps end
+	sub R0, R0, R0
+	st R0, R4
+	dec R4, R4
+	jmp replace_loop_top_row
 
 ;;#==[ FALLING
 falling:
@@ -273,6 +360,7 @@ falling:
 	ld R1, R4      ;; R1 <- y
 	inc R1, R1     ;; R1++
 	st R1, R4      ;; R1 -> y
+	jmp end
 ;;#==[ FALLING END
 
 end:
