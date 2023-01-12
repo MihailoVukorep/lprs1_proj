@@ -56,16 +56,15 @@
 3, 0 ;; default player x,y
 
 ;; p_data:
-3, 0 ;; x, y player/block
-
+3, 0 ;; x, y player/block location
 0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
 0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
 0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
-0, 0, 0, 0, 0, 0, 0, 1 ;; hitmap
 0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
 0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
-0, 0, 0, 0, 0, 0, 1, 0 ;; hitmap
-1, 1, 1, 0, 0, 0, 1, 0 ;; hitmap
+1, 0, 0, 0, 0, 1, 0, 0 ;; hitmap
+1, 0, 1, 0, 0, 1, 1, 0 ;; hitmap
+1, 1, 1, 0, 1, 1, 1, 1 ;; hitmap
 -1 ;; hitmap_end
 
 .text
@@ -78,10 +77,11 @@
 ;; R5 - p_pb_dec
 ;; R6 - p_frame_sync
 ;; R7 - p_rgb_matrix
-;; 
+;;
 
 
 ;;#==[ REGISTER SETUP
+begin:
 	inc R0, R0 ;; addr = 1
 	inc R0, R0 ;; addr = 2
 	inc R0, R0 ;; addr = 3
@@ -102,7 +102,7 @@ frame_sync_wait_1:
 
 ;;#==[ DRAW BEGIN
     sub R0, R0, R0              ;;
-    ld R4, R0                   ;; p_data = start (addr 6)
+    ld R4, R0                   ;; p_data = start (addr 8)
 	sub R3, R3, R3              ;; color = 0
     inc R3, R3                  ;; color = red
 ;;#==[ DRAW PLAYER
@@ -120,19 +120,16 @@ frame_sync_wait_1:
 	shl R3, R3                  ;; color = red->green
 	sub R0, R0, R0              ;; R0 = 0 / counter
 draw_hitmap_loop:
-	ld R1, R4                   ;; 
+	ld R1, R4                   ;;
 	jmps draw_end               ;; hitmap[i] == -1
-	ld R1, R4                   ;; 
 	jmpz draw_hitmap_next       ;; hitmap[i] == 0
 	;; hitmap[i] == 1
 	add R2, R7, R0 ;; R2 = p_rgb_matrix + counter
 	st R3, R2      ;; color -> R2
-	jmp draw_hitmap_next
 draw_hitmap_next:
 	inc R4, R4 ;; p_data++
 	inc R0, R0 ;; R0++ / counter++
 	jmp draw_hitmap_loop
-
 draw_end:
 ;;#==[ DRAW END
 
@@ -153,17 +150,15 @@ count_frames_heatbeat:
 	st R1, R0                   ;; R1 i.e. 0 -> frame_cnt
 ;;#==[ SLEEP END
 
-;; before falling check under block for under,bottom
-
 ;;#==[ FALLING -> CHECK UNDER
-;; check if player hit block under
+;; before falling, check if the player will hit a block underneath
 	sub R0, R0, R0               ;; R0 = 0
 	ld R4, R0                    ;; p_data = start / p_data -> x
 	ld R1, R4                    ;; R1 = x
 	inc R4, R4                   ;; p_data++ / p_data -> y
 	ld R2, R4                    ;; R2 = y
 	inc R4, R4                   ;; p_data++ / p_data -> hitmap[0]
-	;;> R1 = x ; R2 = y ; R4 = hitmap[0]
+	;; R1 = x ; R2 = y ; R4 = hitmap[0]
 	inc R2, R2                   ;; y++
 	shl R2, R2                   ;; y << 1
 	shl R2, R2                   ;; y << 1
@@ -171,13 +166,13 @@ count_frames_heatbeat:
 	add R2, R1, R2               ;; y += x
 	add R2, R4, R2               ;; y += R4
 	ld R0, R2                    ;;
-	jmpz falling_check_bottom    ;; if hitmap[y+1] == 1 -> jmp falling_hit
+	jmpz falling_check_beneath   ;; if hitmap[y+1] == 1 -> jmp falling_hit
 	jmp falling_hit
 ;;#==[ FALLING -> CHECK UNDER END
 
 ;;#==[ FALLING -> CHECK BOTTOM
 ;; check if player hit the bottom / y == 7
-falling_check_bottom:
+falling_check_beneath:
 	sub R0, R0, R0
 	ld R4, R0                   ;; p_data = start (addr 6) / x cord
 	inc R4, R4                  ;; p_data++ / y cord
@@ -185,19 +180,16 @@ falling_check_bottom:
 	sub R0, R0, R0              ;; R0 = 0
 	inc R0, R0                  ;; R0 = 1
 	inc R0, R0                  ;; R0 = 2
-	inc R0, R0                  ;; R0 = 3
-	inc R0, R0                  ;; R0 = 4
-	inc R0, R0                  ;; R0 = 5
-	inc R0, R0                  ;; R0 = 6
-	inc R0, R0                  ;; R0 = 7
+	shl R0, R0                  ;; R0 = 4
+	shl R0, R0                  ;; R0 = 8
+	dec R0, R0                  ;; R0 = 7
 	sub R2, R0, R1
 	jmpz falling_hit
 ;;#==[ FALLING -> CHECK BOTTOM END
 
 ;;#==[ FALLING -> CHECK END
-	;; all checks checked, you can fall now
+	;; all checks passed, you can fall now
 	jmp falling
-
 
 ;; load x & y and put in hitmap[x][y] = 1
 ;;#==[ FALLING -> HIT
@@ -220,13 +212,12 @@ falling_hit:
 	inc R0, R0                  ;; R0 = 1
 	st R0, R2                   ;; hitmap[i] = 1
 
-;;#==[ FALLING -> RESTART PLAYER POS
+;;#==[ FALLING -> RESET PLAYER POS
 ;; x = 3 , y = 0
 	sub R0, R0, R0
 	inc R0, R0
 	inc R0, R0
-	inc R0, R0
-	inc R0, R0
+	shl R0, R0
 	inc R0, R0
 	inc R0, R0 ;; R0 = 6
 	ld R1, R0  ;; R1 = def x
@@ -237,9 +228,42 @@ falling_hit:
 	st R1, R4 ;; def x -> x
 	inc R4, R4 ;; p_data++ / p_data -> y
 	st R2, R4 ;; def y -> y
-	
+	;;jmp end
+
+;;;;;; CLEARING_CHECK -> SETUP
+clearing_check_setup:
+	sub R0, R0, R0
+	mov R3, R0     ;; R3 (number of bottom blocks that have been hit) = 0
+	inc R0, R0
+	shl R0, R0
+	shl R0, R0
+	shl R0, R0     ;; R0 (max for comparison) = 8
+	sub R1, R1, R1
+	inc R1, R1
+	shl R1, R1
+	shl R1, R1
+	shl R1, R1
+	shl R1, R1
+	shl R1, R1
+	shl R1, R1     ;; R1 = the bottom left point (addr 64 = hitmap[56])
+clearing_check_loop:
+	inc R3, R3
+	sub R4, R0, R3 ;; R4 = 8 - count
+	jmpz clearing_setup
+
+	sub R4, R4, R4
+	inc R4, R4     ;; R4 (for comparison if hit) = 1
+	ld R2, R1      ;; R2 = hitmap[i]
+	inc R1, R1     ;; move to the next
+	sub R2, R4, R2
+	jmpz clearing_check_loop ;; check next
 	jmp end
 
+clearing_setup:
+	sub R1, R1, R3 ;; reset R1 back to bottom left, R1 = 63 - 8 = 55
+	inc R1, R1     ;; R1 = 64 = hitmap[56]
+
+	;; TODO: CLEARING ALGORITHM
 
 ;;#==[ FALLING
 falling:
@@ -250,9 +274,6 @@ falling:
 	inc R1, R1     ;; R1++
 	st R1, R4      ;; R1 -> y
 ;;#==[ FALLING END
-
-
-	
 
 end:
 	jmp frame_sync_rising_edge
