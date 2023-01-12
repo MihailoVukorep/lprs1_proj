@@ -33,16 +33,16 @@
 ;;   # # # # # # # # # #
 ;;
 ;; ###########################
-;; #  0  1  2  3  4  5  6  7 #
+;; #  0  1  2  3  4  5  6  7 # 0
 ;; #  8  9 10 11 12 13 14 15 #
 ;; # 16 17 18 19 20 21 22 23 #
 ;; # 24 25 26 27 28 29 30 31 #
-;; # 32 33 34 35 36 37 38 39 #
-;; # 40 41 42 43 44 45 46 47 #
-;; # 48 49 50 51 52 53 54 55 #
-;; # 56 57 58 59 60 61 62 63 #
+;; # 32 33 34 35 36 37 38 39 # 0?
+;; # 40 41 42 43 44 45 46 47 # 5
+;; # 48 49 50 51 52 53 54 55 # 6
+;; # 56 57 58 59 60 61 62 63 # 7
 ;; ###########################
-;;
+;;-1  0   1   2    3 4 5 6 7
 ;;
 
 .data
@@ -68,7 +68,6 @@
 -1 ;; hitmap_end
 
 .text
-;;
 ;; R0 - tmp
 ;; R1 - x
 ;; R2 - y
@@ -77,19 +76,6 @@
 ;; R5 - p_pb_dec
 ;; R6 - p_frame_sync
 ;; R7 - p_rgb_matrix
-;;
-
-
-;;#==[ REGISTER SETUP
-begin:
-	inc R0, R0 ;; addr = 1
-	inc R0, R0 ;; addr = 2
-	inc R0, R0 ;; addr = 3
-	ld R7, R0  ;; R7 <- p_rgb_matrix
-	inc R0, R0 ;; addr = 4
-	ld R6, R0  ;; R6 <- p_frame_sync
-	inc R0, R0 ;; addr = 5
-	ld R5, R0  ;; R5 <- p_pb_dec
 
 ;;==[ CLOCK LOOP
 frame_sync_rising_edge:
@@ -100,29 +86,16 @@ frame_sync_wait_1:
 	ld R0, R6                   ;; R0 <- p_frame_sync
 	jmpz frame_sync_wait_1
 
-
-;; TESTTTTT
-; 	sub R0, R0, R0              ;;
-;     ld R4, R0                   ;; p_data = start (addr 8)
-; 	sub R3, R3, R3              ;; color = 0
-;     inc R3, R3
-;     inc R4, R4
-;     inc R4, R4 ; hitmap[0]
-;
-; 	sub R2, R2, R2
-; 	inc R2, R2 ; R2 = 1
-; 	shl R2, R2
-; 	shl R2, R2
-; 	shl R2, R2
-; 	shl R2, R2
-; 	shl R2, R2
-; 	shl R2, R2
-; 	dec R2, R2
-; 	add R2, R7, R2
-;     st R3, R2
-;
-;     jmp sleep
-;; END TESTTTTT
+;;#==[ REGISTER SETUP
+    sub R0, R0, R0
+	inc R0, R0 ;; addr = 1
+	inc R0, R0 ;; addr = 2
+	inc R0, R0 ;; addr = 3
+	ld R7, R0  ;; R7 <- p_rgb_matrix
+	inc R0, R0 ;; addr = 4
+	ld R6, R0  ;; R6 <- p_frame_sync
+	inc R0, R0 ;; addr = 5
+	ld R5, R0  ;; R5 <- p_pb_dec
 
 ;;#==[ DRAW BEGIN
     sub R0, R0, R0              ;;
@@ -254,39 +227,13 @@ falling_hit:
 	inc R4, R4 ;; p_data++ / p_data -> y
 	st R2, R4 ;; def y -> y
 
-;;;;; CLEARING_CHECK -> SETUP
-; clearing_check_setup:
-; 	sub R0, R0, R0
-; 	mov R3, R0     ;; R3 (number of bottom blocks that have been hit) = 0
-; 	inc R0, R0
-; 	shl R0, R0
-; 	shl R0, R0
-; 	shl R0, R0     ;; R0 (max for comparison) = 8
-; 	sub R1, R1, R1
-; 	ld R4, R1      ;; pdata[0]
-; 	inc R4, R4
-; 	inc R4, R4     ;; hitmap[0]
-; clearing_check_loop:
-; 	inc R3, R3
-; 	sub R4, R0, R3 ;; R4 = 8 - count
-; 	jmpz replace_setup
-;
-; 	sub R4, R4, R4
-; 	inc R4, R4     ;; R4 (for comparison if hit) = 1
-; 	ld R2, R1      ;; R2 = hitmap[i]
-; 	inc R1, R1     ;; move to the next
-; 	sub R2, R4, R2
-; 	jmpz clearing_check_loop ;; check next
-; 	jmp end
-
 check_lowest_loop_setup:
 	sub R3, R3, R3
 	inc R3, R3
-	mov R0, R3     ; R0 = 1, for checking if there's a block
 	shl R3, R3
 	shl R3, R3
 	shl R3, R3     ; R3 = 8
-	mov R4, R3      ; R4 = pdata[0]
+	mov R4, R3     ; R4 = pdata[0]
 	inc R4, R4     ; pdata[1]
 	inc R4, R4     ; hitmap[0] (pdata[2])
 	add R4, R4, R3 ; hitmap[8]
@@ -333,8 +280,8 @@ replace_loop_start:
 	dec R1, R1     ; x--
 	jmps replace_loop_decrease_y
 replace_loop_p2:
-	ld R1, R0      ; R1 = value of hitmap[above]
-	st R1, R4      ; hitmap[current] <- value of hitmap[above]
+	ld R7, R0      ; R1 = value of hitmap[above]
+	st R7, R4      ; hitmap[current] <- value of hitmap[above]
 	dec R4, R4     ; hitmap[current - 1]
 	dec R0, R0     ; hitmap[above - 1]
 	jmp replace_loop_start
