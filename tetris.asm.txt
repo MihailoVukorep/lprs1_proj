@@ -47,18 +47,18 @@
 ;; p_data:
 3, 0 ;; x, y player/block location
 0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
-0, 1, 1, 0, 0, 0, 0, 0 ;; hitmap
-0, 1, 1, 0, 0, 0, 0, 1 ;; hitmap
-0, 1, 1, 0, 1, 0, 0, 1 ;; hitmap
-0, 1, 1, 0, 1, 1, 0, 1 ;; hitmap
-1, 1, 1, 0, 1, 1, 1, 1 ;; hitmap
-1, 1, 1, 0, 1, 1, 1, 1 ;; hitmap
-1, 1, 1, 0, 1, 1, 1, 1 ;; hitmap
+0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
+0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
+0, 0, 0, 0, 1, 0, 0, 0 ;; hitmap
+0, 0, 0, 0, 1, 1, 0, 0 ;; hitmap
+1, 0, 0, 0, 1, 1, 0, 0 ;; hitmap
+1, 0, 1, 0, 1, 1, 0, 0 ;; hitmap
+1, 0, 1, 0, 1, 1, 0, 0 ;; hitmap
 -1 ;; hitmap_end
 
 .text
 
-;;==[ CLOCK LOOP
+;;#==[ CLOCK LOOP
 frame_sync_rising_edge:
 ;;# clock loop setup
 	sub R0, R0, R0 ;; R0 = 0
@@ -79,7 +79,7 @@ frame_sync_wait_1:
 	inc R0, R0                  ;; addr = 1
 	inc R0, R0                  ;; addr = 2
 	inc R0, R0                  ;; addr = 3
-	ld R7, R0                   ;; R7 -> p_rgb_matrix
+	ld R5, R0                   ;; R5 -> p_rgb_matrix
 	sub R3, R3, R3              ;; color = 0
     inc R3, R3                  ;; color = 1 (red)
 ;;#==[ DRAW PLAYER
@@ -90,7 +90,7 @@ frame_sync_wait_1:
 	shl R2, R2                  ;; y << 1
 	shl R2, R2                  ;; y << 1
 	add R2, R1, R2              ;; y += x
-	add R2, R7, R2              ;; y += p_rgb_matrix
+	add R2, R5, R2              ;; y += p_rgb_matrix
 	st R3, R2                   ;; p_rgb_matrix[x][y] = red color
 ;;#==[ DRAW HITMAP
 	inc R4, R4                  ;; p_data++ / p_data -> hitmap[0]
@@ -101,7 +101,7 @@ draw_hitmap_loop:
 	jmps draw_end               ;; hitmap[i] == -1
 	jmpz draw_hitmap_next       ;; hitmap[i] == 0
 	;; hitmap[i] == 1
-	add R2, R7, R0 ;; R2 = p_rgb_matrix + counter
+	add R2, R5, R0 ;; R2 = p_rgb_matrix + counter
 	st R3, R2      ;; color -> R2
 draw_hitmap_next:
 	inc R4, R4 ;; p_data++
@@ -129,17 +129,52 @@ count_frames_heatbeat:
 ;;#==[ SLEEP END
 
 ;;#==[ CONTROLS BEGIN
-;	sub R0, R0, R0  ;; R0 = 0
-;	ld R4, R0       ;; R4 = p_data / x
-;	inc R0, R0      ;; R0 = 1
-;	shl R0, R0      ;; R0 = 2
-;	shl R0, R0      ;; R0 = 4
-;	inc R0, R0      ;; R0 = 5
-;	ld R5, R0       ;; R5 = pb dec
-;	ld R1, R4       ;; R1 = player x pos
-;	ld R2, R5       ;; R2 = ctrl / -1 if left, +1 if right
-;	add R0, R1, R2  ;; R0 = x + ctrl
-;	st R0, R4       ;; R0 -> p_data / x
+	sub R0, R0, R0  ;; R0 = 0
+	ld R4, R0       ;; R4 = p_data / x
+	ld R1, R4       ;; R1 = x
+	inc R4, R4      ;; p_data++
+	ld R2, R4       ;; R2 = y
+	inc R4, R4      ;; p_data -> hitmap[0]
+	
+	;; x >= 0
+	inc R0, R0       ;; R0 = 1
+	shl R0, R0       ;; R0 = 2
+	shl R0, R0       ;; R0 = 4
+	inc R0, R0       ;; R0 = 5
+	ld R5, R0        ;; R5 = pb dec
+	;;ld R3, R5      ;; R3 = ctrl / -1 if left, +1 if right
+	sub R3, R3, R3   ;; R3 = 0
+	dec R3, R3       ;; R3 = -1
+	
+	add R6, R1, R3   ;; R6 = x+ctrl
+	jmps move_failed ;; if R6 == -1 -> jmp move_failed
+	
+	;; x <= 7
+	sub R0, R0, R0 ;; R0 = 0
+	inc R0, R0     ;; R0 = 1
+	shl R0, R0     ;; R0 = 2
+	shl R0, R0     ;; R0 = 4
+	shl R0, R0     ;; R0 = 8
+	sub R0, R0, R6
+	jmpz move_failed ;; if R6 == 8 -> jmp move_failed
+	
+	;; check for walls
+	;; R2 = (y << 3) + x + R4
+	shl R2, R2                  ;; y << 1
+	shl R2, R2                  ;; y << 1
+	shl R2, R2                  ;; y << 1
+	add R2, R6, R2              ;; y += (x+ctrl)
+	add R2, R4, R2              ;; y += p_data
+	ld R0, R2
+	jmpz move_control
+	
+	jmp move_failed
+move_control:
+	sub R0, R0, R0  ;; R0 = 0
+	ld R4, R0       ;; R4 = p_data / x
+	st R6, R4       ;; x = R6
+
+move_failed:
 ;;#==[ CONTROLS END
 
 
@@ -312,13 +347,13 @@ replace_setup:
 	mov R0, R4
 	sub R0, R0, R3 ; R0 = hitmap[current] - 8 = hitmap[above]
 	dec R2, R2     ; y = 7 at the start so that it's 0 when we hit the top row
-	sub R7, R7, R7
+	sub R5, R5, R5
 replace_loop_start:
 	dec R1, R1     ; x--
 	jmps replace_loop_decrease_y
 replace_loop_p2:
-	ld R7, R0      ; R1 = value of hitmap[above]
-	st R7, R4      ; hitmap[current] <- value of hitmap[above]
+	ld R5, R0      ; R1 = value of hitmap[above]
+	st R5, R4      ; hitmap[current] <- value of hitmap[above]
 	dec R4, R4     ; hitmap[current - 1]
 	dec R0, R0     ; hitmap[above - 1]
 	jmp replace_loop_start
