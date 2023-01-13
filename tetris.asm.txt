@@ -48,11 +48,13 @@
 .data
 8 ;; pointer na p_data
 0 ;; frame count
-75 ;; frame per heartbeat; 75 for board, 1 for sim
+1 ;; frame per heartbeat
 0x100 ;; pointer - rgb matrix
 0x140 ;; pointer - frame sync
 0x200 ;; pointer - pb dec
+
 3, 0 ;; default player x,y
+
 ;; p_data:
 3, 0 ;; x, y player/block location
 0, 0, 0, 0, 0, 0, 0, 0 ;; hitmap
@@ -162,11 +164,11 @@ count_frames_heatbeat:
 	inc R1, R1
 	shl R1, R1
 	shl R1, R1
-	shl R1, R1       ; R1 = pdata[0]
-	ld R3, R1        ; player x pos
-	ld R0, R5        ; -1 if left, +1 if right
-	add R0, R0, R3   ; x pos +- 1
-	st R0, R1        ; apply new position
+	shl R1, R1 ; R1 = pdata[0]
+	ld R3, R1  ; player x pos
+	ld R0, R5  ; -1 if left, +1 if right
+	add R0, R0, R3
+	st R0, R1
 
 ;;#==[ FALLING -> CHECK UNDER
 ;; before falling, check if the player will hit a block underneath
