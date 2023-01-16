@@ -58,6 +58,9 @@
 
 .text
 
+;;#==[ SETUP REGISTER FOR CONTROLS
+	sub R7, R7, R7 ;; R7 = 0
+
 ;;#==[ CLOCK LOOP
 frame_sync_rising_edge:
 ;;# clock loop setup
@@ -111,6 +114,40 @@ draw_end:
 ;;#==[ DRAW END
 
 ;;#==[ CONTROLS BEGIN
+	;; R7 - pritisnuto
+	;;
+	;; if R3 == 0: R7 = 0 ; skip
+	;; if R7 == 1: skip
+	;; 
+	;; R7 = 1
+	;; move
+
+move:
+	sub R0, R0, R0   ;; R0 = 0
+	inc R0, R0       ;; R0 = 1
+	shl R0, R0       ;; R0 = 2
+	shl R0, R0       ;; R0 = 4
+	inc R0, R0       ;; R0 = 5
+	ld R5, R0        ;; R5 = pb dec
+	ld R3, R5        ;; R3 = ctrl / -1/+1
+	
+	mov R0, R3       ;; R3 == 0 -> R7 = 0
+	jmpz move_reset
+	jmp move2
+	
+move_reset:
+	sub R7, R7, R7 ;; R7 = 0
+	jmp move_failed
+	
+move2:
+
+	mov R0, R7 ;; R7 == 0 -> move3
+	jmpz move3
+	jmp move_failed
+
+move3:
+	inc R7, R7 ;; R7 = 1
+	
 	sub R0, R0, R0  ;; R0 = 0
 	ld R4, R0       ;; R4 = p_data / x
 	ld R1, R4       ;; R1 = x
