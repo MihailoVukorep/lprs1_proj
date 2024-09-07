@@ -2,4 +2,4 @@
 
 vhdl tetris for RGB matrix
 
-<img src="preview/preview.png" width="400" height="225">
+<img src="preview/preview.gif" width="400" height="225">
